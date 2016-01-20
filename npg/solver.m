@@ -176,12 +176,14 @@ switch lower(opt.alphaStep)
                     % alphaStep=PG(1,alpha,1,opt.stepShrnk,Psi,Psit);
                 end
             case {lower('PNPG')}
-                alpha=max(alpha,0);
-                alphaStep=PNPG(1,alpha,1,opt.stepShrnk,proximalProj);
-                alphaStep.fArray{3} = penalty;
                 if(strcmpi(opt.noiseType,'poisson'))
                     if(~isfield(opt,'forcePositive' )) opt.forcePositive=true; end
                 end
+                alpha=max(alpha,0);
+                alphaStep=PNPG(1,alpha,1,opt.stepShrnk,proximalProj,Phi,Phit);
+                fPhi=@(x) x(:); fPhit=@(x) x(:);
+                gPhi=Phi; gPhit=Phit;
+                alphaStep.fArray{3} = penalty;
             case lower('ATs')
                 alphaStep=ATs(1,alpha,1,opt.stepShrnk,Psi,Psit);
                 alphaStep.fArray{3} = penalty;
@@ -208,23 +210,27 @@ switch lower(opt.alphaStep)
     case {lower('ADMM_NN')}
         alphaStep = ADMM_NN(2,alpha,1,opt.stepShrnk,Psi,Psit);
 end
+if(~exist('fPhi')) fPhi=Phi; end
+if(~exist('fPhit')) fPhit=Phit; end
+if(~exist('gPhi')) gPhi=@(x) x(:); end
+if(~exist('gPhit')) gPhit=@(x) x(:); end
 switch lower(opt.noiseType)
     case lower('poissonLogLink')
-        alphaStep.fArray{1} = @(aaa) Utils.poissonModelLogLink(aaa,Phi,Phit,y);
+        alphaStep.fArray{1} = @(aaa) Utils.poissonModelLogLink(aaa,fPhi,fPhit,y);
     case lower('poissonLogLink0')
-        alphaStep.fArray{1} = @(aaa) Utils.poissonModelLogLink0(aaa,Phi,Phit,y,opt.I0);
+        alphaStep.fArray{1} = @(aaa) Utils.poissonModelLogLink0(aaa,fPhi,fPhit,y,opt.I0);
     case 'poisson'
         if(isfield(opt,'bb'))
             temp=reshape(opt.bb,size(y));
         else
             temp=0;
         end
-        alphaStep.fArray{1} = @(aaa) Utils.poissonModel(aaa,Phi,Phit,y,temp);
-        constEst=@(y) Utils.poissonModelConstEst(Phi,Phit,y,temp);
+        alphaStep.fArray{1} = @(aaa) Utils.poissonModel(aaa,fPhi,fPhit,y,temp);
+        constEst=@(y) Utils.poissonModelConstEst(fPhi,fPhit,y,temp);
     case 'gaussian'
-        alphaStep.fArray{1} = @(aaa) Utils.linearModel(aaa,Phi,Phit,y);
+        alphaStep.fArray{1} = @(aaa) Utils.linearModel(aaa,fPhi,fPhit,y);
     case 'logistic'
-        alphaStep.fArray{1} = @(alpha) Utils.logisticModel(alpha,Phi,Phit,y);
+        alphaStep.fArray{1} = @(alpha) Utils.logisticModel(alpha,fPhi,fPhit,y);
 end
 alphaStep.fArray{2} = @Utils.nonnegPen;
 alphaStep.coef(1:2) = [1; opt.nu;];
@@ -280,7 +286,8 @@ if(opt.continuation || opt.fullcont)
                 [~,g]=constEst(y);
                 u_max=sqrt(2)*TV.upperBoundU(maskFunc(g,opt.mask));
             otherwise
-                [~,g]=alphaStep.fArray{1}(alpha);
+                [~,g]=alphaStep.fArray{1}(gPhi(alpha));
+                g=gPhit(g);
                 u_max=pNorm(Psit(g),inf);
         end
         alphaStep.u = opt.contEta*u_max;
@@ -318,6 +325,12 @@ if(any(strcmp(properties(alphaStep),'innerSearch')))
     collectInnerSearch=true;
 else
     collectInnerSearch=false;
+end
+
+if(any(strcmp(properties(alphaStep),'needsProj')))
+    collectNeedsProj=true;
+else
+    collectNeedsProj=false;
 end
 
 if(any(strcmp(properties(alphaStep),'debug')))
@@ -388,6 +401,7 @@ while(true)
     out.stepSize(p) = alphaStep.stepSize;
     if(opt.restart) out.restart(p)=alphaStep.restart; end
     if(collectNonInc) out.nonInc(p)=alphaStep.nonInc; end
+    if(collectNeedsProj) out.needsProj(p)=alphaStep.needsProj; end
     if(collectNbt) out.nbt(p)=alphaStep.nbt; end
     if(collectTheta) out.theta(p)=alphaStep.theta; end
     if(collectInnerSearch) out.innerSearch(p)=alphaStep.innerSearch; end;

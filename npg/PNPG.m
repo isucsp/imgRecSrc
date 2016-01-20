@@ -23,21 +23,37 @@ classdef PNPG < Methods
         maxInnerItr=100;
 
         proxmapping
+
+        needsProj=false;
+
+        Phi=@(x) x;
+        Phit=@(x) x;
+
+        Phi_alpha;
+        Phi_preAlpha;
     end
     methods
-        function obj = PNPG(n,alpha,maxAlphaSteps,stepShrnk,pm)
+        function obj = PNPG(n,alpha,maxAlphaSteps,stepShrnk,pm,Phi,Phit)
             obj = obj@Methods(n,alpha);
             obj.maxItr = maxAlphaSteps;
             obj.stepShrnk = stepShrnk;
             obj.nonInc=0;
             obj.proxmapping=pm;
+            if(exist('Phi','var'))
+                obj.Phi=Phi;
+            end
+            if(exist('Phit','var'))
+                obj.Phit=Phit;
+            end
             obj.setAlpha(alpha);
         end
         function setAlpha(obj,alpha)
             obj.alpha=alpha;
+            obj.Phi_alpha=obj.Phi(alpha);
             obj.cumu=0;
             obj.theta=0;
             obj.preAlpha=alpha;
+            obj.Phi_preAlpha=obj.Phi_alpha;
         end
         % solves L(α) + I(α>=0) + u*||Ψ'*α||_1
         % method No.4 with ADMM inside FISTA for NNL1
@@ -61,15 +77,21 @@ classdef PNPG < Methods
                     newTheta=(1+sqrt(1+4*B*obj.theta^2))/2;
                     xbar=obj.alpha+(obj.theta -1)/newTheta*(obj.alpha-obj.preAlpha);
                     if(obj.forcePositive)
+                        obj.needsProj=true;
                         xbar=max(xbar,0);
+                        [oldCost,obj.grad] = obj.func(obj.Phi(xbar));
+                    else
+                        obj.needsProj=false;
+                        [oldCost,obj.grad] = obj.func(obj.Phi_alpha+(obj.Phi_alpha-obj.Phi_preAlpha)*(obj.theta-1)/newTheta);
                     end
-                    [oldCost,obj.grad] = obj.func(xbar);
+                    obj.grad=obj.Phit(obj.grad);
                     [newX,obj.innerSearch]=obj.proxmapping(...
                         xbar-obj.grad/obj.t,...
                         obj.u/obj.t,...
                         obj.admmTol*obj.difAlpha,...
                         obj.maxInnerItr,obj.alpha);
-                    newCost=obj.func(newX);
+                    Phi_newX=obj.Phi(newX);
+                    newCost=obj.func(Phi_newX);
                     if(Utils.majorizationHolds(newX-xbar,newCost,oldCost,[],obj.grad,obj.t))
                         if(obj.p<=obj.preSteps && obj.ppp<18 && goodStep && obj.t>0)
                             obj.t=obj.t*obj.stepShrnk; continue;
@@ -134,10 +156,11 @@ classdef PNPG < Methods
                         newObj=obj.cost;  newX=obj.alpha;
                     end
                 end
-                obj.theta = newTheta; obj.preAlpha = obj.alpha;
+                obj.theta = newTheta;
+                obj.preAlpha = obj.alpha; obj.Phi_preAlpha=obj.Phi_alpha;
                 obj.cost = newObj;
                 obj.difAlpha = relativeDif(obj.alpha,newX);
-                obj.alpha = newX;
+                obj.alpha = newX; obj.Phi_alpha=Phi_newX;
                 obj.preT=obj.t;
 
                 if(obj.ppp==1 && obj.adaptiveStep)

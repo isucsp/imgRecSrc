@@ -100,17 +100,35 @@ classdef Methods < handle
                     if(~exist('opt','var'))
                         opt=1e-5;
                     end
-                    [~,grad1] = obj.func(obj.alpha);
-                    temp = opt*grad1/pNorm(grad1);
-                    [~,grad2] = obj.func(obj.alpha-temp);
+                    if(any(strcmp(properties(obj),'Phi_alpha')))
+                        [~,grad1] = obj.func(obj.Phi_alpha);
+                        temp = opt*obj.Phit(grad1)/pNorm(grad1);
+                        [~,grad2] = obj.func(obj.Phi_alpha-obj.Phi(temp));
+                        grad2=obj.Phit(grad2);
+                    else
+                        [~,grad1] = obj.func(obj.alpha);
+                        temp = opt*grad1/pNorm(grad1);
+                        [~,grad2] = obj.func(obj.alpha-temp);
+                    end
                     t = abs(innerProd(grad1-grad2,temp))/sqrNorm(temp);
                 case 'hessian'
                     if(exist('opt','var'))
-                        [~,~,hessian] = obj.func(obj.alpha);
-                        t = hessian(opt-obj.alpha,2)/sqrNorm(opt-obj.alpha);
+                        if(any(strcmp(properties(obj),'Phi_alpha')))
+                            [~,~,hessian] = obj.func(obj.Phi_alpha);
+                            t = hessian(obj.Phi(opt-obj.alpha),2)/sqrNorm(opt-obj.alpha);
+                        else
+                            [~,~,hessian] = obj.func(obj.alpha);
+                            t = hessian(opt-obj.alpha,2)/sqrNorm(opt-obj.alpha);
+                        end
                     else
-                        [~,gradient,hessian] = obj.func(obj.alpha);
-                        t = hessian(gradient,2)/sqrNorm(gradient);
+                        if(any(strcmp(properties(obj),'Phi_alpha')))
+                            [~,gradient,hessian] = obj.func(obj.Phi_alpha);
+                            gradient=obj.Phit(gradient);
+                            t = hessian(obj.Phi(gradient),2)/sqrNorm(gradient);
+                        else
+                            [~,gradient,hessian] = obj.func(obj.alpha);
+                            t = hessian(gradient,2)/sqrNorm(gradient);
+                        end
                     end
                 case 'fixed'
                     t = opt;
@@ -134,7 +152,11 @@ classdef Methods < handle
             else
                 obj.coef(obj.n+1)=u;
             end
-            obj.cost = obj.func(obj.alpha)+obj.u*obj.fArray{3}(obj.alpha)+obj.indicate();
+            if(any(strcmp(properties(obj),'Phi_alpha')))
+                obj.cost = obj.func(obj.Phi_alpha)+obj.u*obj.fArray{3}(obj.alpha)+obj.indicate();
+            else
+                obj.cost = obj.func(obj.alpha)+obj.u*obj.fArray{3}(obj.alpha)+obj.indicate();
+            end
         end
         function x= cg(c,hessianA,atHessianA,maxItr)
             % This function solve the problem 
