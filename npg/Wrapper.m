@@ -24,6 +24,10 @@ classdef Wrapper < handle
             opt.continuation=false; opt.alphaStep='AT';
             out=solver(Phi,Phit,Psi,Psit,y,xInit,opt);
         end
+        function out = Armijo(Phi,Phit,Psi,Psit,y,xInit,opt)
+            opt.continuation=false; opt.alphaStep='Armijo';
+            out=solver(Phi,Phit,Psi,Psit,y,xInit,opt);
+        end
         function out = GFB(Phi,Phit,Psi,Psit,y,xInit,opt)
             opt.continuation=false; opt.alphaStep='GFB';
             out=solver(Phi,Phit,Psi,Psit,y,xInit,opt);

@@ -128,7 +128,8 @@ switch lower(opt.alphaStep)
     case {lower('SpaRSA')}
         alphaStep=SpaRSA(2,alpha,1,opt.stepShrnk,Psi,Psit,opt.M);
     case {lower('NPGs'),lower('NPG'),lower('AT'),lower('ATs'),...
-            lower('GFB'),lower('Condat'),lower('PNPG'),lower('PG')}
+            lower('GFB'),lower('Condat'),lower('PNPG'),lower('PG'),...
+            lower('Armijo')}
         switch(lower(opt.proximal))
             case lower('wvltFADMM')
                 proximalProj=@(x,u,innerThresh,maxInnerItr,varargin) fadmm(Psi,Psit,x,u,...
@@ -155,6 +156,11 @@ switch lower(opt.alphaStep)
         end
 
         switch lower(opt.alphaStep)
+            case {lower('Armijo')}
+                proximalProj=@(x,u,innerThresh,maxInnerItr,varargin) Armijo.admm(Psi,Psit,x,u,...
+                    innerThresh,maxInnerItr,false,varargin{:});
+                alphaStep=Armijo(1,alpha,1,opt.stepShrnk,proximalProj,Phit(ones(length(y),1)));
+                alphaStep.fArray{3} = penalty;
             case {lower('NPGs')}
                 alphaStep=NPGs(1,alpha,1,opt.stepShrnk,Psi,Psit);
                 alphaStep.fArray{3} = penalty;

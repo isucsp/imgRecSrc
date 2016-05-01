@@ -134,7 +134,8 @@ classdef Methods < handle
             else
                 obj.coef(obj.n+1)=u;
             end
-            obj.cost = obj.func(obj.alpha)+obj.u*obj.fArray{3}(obj.alpha)+obj.indicate();
+            obj.fVal(3)=obj.fArray{3}(obj.alpha);
+            obj.cost = obj.func(obj.alpha)+obj.u*obj.fVal(3)+obj.indicate();
         end
         function x= cg(c,hessianA,atHessianA,maxItr)
             % This function solve the problem 

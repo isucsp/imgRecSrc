@@ -47,15 +47,13 @@ switch lower(op)
 
                 if(i==5)
                     opt=OPT;
-                pnpg   {i,j,k}=Wrapper.PNPG    (Phi,Phit,Psi,Psit,y,initSig,opt);
-
-                keyboard
-                opt.L=1/pnpg{i,j,k}.stepSize(end);
-                condat   {i,j,k}=Wrapper.Condat   (Phi,Phit,Psi,Psit,y,initSig,opt);
-                keyboard
-            else
-                continue
-            end
+                    pnpg   {i,j,k}=Wrapper.PNPG  (Phi,Phit,Psi,Psit,y,initSig,opt);
+                    armoji {i,j,k}=Wrapper.Armoji(Phi,Phit,Psi,Psit,y,initSig,opt);
+                    pg     {i,j,k}=Wrapper.PG    (Phi,Phit,Psi,Psit,y,initSig,opt);
+                    keyboard
+                else
+                    continue
+                end
 
                 if(i==5)
                     OPT.stepShrnk=0.5; OPT.stepIncre=0.5;
@@ -178,6 +176,64 @@ switch lower(op)
 %               % wnpgc  {i,k}=Wrapper.NPGc   (wPhi,wPhit,Psi,Psit,wy,initSig,opt);
             end
         end
+
+    case 'armijo'
+        % PET example
+        filename = [mfilename '_Armijo.mat'];
+        if(~exist(filename,'file')) save(filename,'filename'); else load(filename); end
+        clear -regexp '(?i)opt'
+        filename = [mfilename '_Armijo.mat'];
+        OPT.maxItr=3e3; OPT.thresh=1e-16; OPT.debugLevel=1; OPT.noiseType='poisson';
+
+        count = [1e4 1e5 1e6 1e7 1e8 1e9];
+        K=1;
+
+        as = [ 0.5, 0.5,0.5, 0.5, 0.5,   1];
+        a  = [-0.5,   0,  0, 0.5, 0.5, 0.5];
+
+        OPT.mask=[];
+        for k=1:K
+            for i=length(count):-1:1
+                j=1;
+                [y,Phi,Phit,Psi,Psit,fbpfunc,OPT]=loadPET(count(i),OPT,k*100+i);
+
+                fbp{i,1,k}.alpha=maskFunc(fbpfunc(y),OPT.mask~=0);
+                fbp{i,1,k}.RMSE=sqrNorm(fbp{i,1,k}.alpha-OPT.trueAlpha)/sqrNorm(OPT.trueAlpha);
+
+                fprintf('fbp RMSE=%f\n',sqrNorm(fbp{i,1,k}.alpha-OPT.trueAlpha)/sqrNorm(OPT.trueAlpha));
+                fprintf('min=%d, max=%d, mean=%d\n',min(y(y>0)),max(y(y>0)),mean(y(y>0)));
+                u_max=1;
+                OPT.u = u_max*10.^a(i);
+
+                initSig=max(fbp{i,1,k}.alpha,0);
+
+                fprintf('%s, i=%d, j=%d, k=%d\n','PET Example',i,j,k);
+
+                if any(i==[5 6])
+                    opt=OPT;
+                    armoji2{i,j,k}=Wrapper.Armijo(Phi,Phit,Psi,Psit,y,initSig,opt);
+                    %pnpg   {i,j,k}=Wrapper.PNPG  (Phi,Phit,Psi,Psit,y,initSig,opt);
+                    %pg     {i,j,k}=Wrapper.PG    (Phi,Phit,Psi,Psit,y,initSig,opt);
+                    mysave;
+                end
+            end
+        end
+    case lower('armijoPlot')
+        filename = [mfilename '_Armijo.mat']; load(filename);
+        idx=5;
+        costMin=min([armoji2{idx}.cost(:); pnpg{idx}.cost(:); pg{idx}.cost(:)]);
+        figure;
+        semilogy(armoji2{idx}.cost-costMin,'b','linewidth',2); hold on;
+        semilogy(pg{idx}.cost-costMin,'r');
+        semilogy(pnpg{idx}.cost-costMin,'k--');
+        set(gca,'FontName','Times','FontSize',16)
+        legend('Armijo rule','PG','PNPG');
+        xlabel('Number of iterations');
+        ylabel('f(x)-f*(x)');
+        title('centered objective VS # of iterations');
+        saveas(gcf,'armijoCompare.eps','psc2');
+        !epstopdf armijoCompare.eps
+        !convert -density 200 armijoCompare.pdf armijoCompare.png
 
     case lower('plot')
         filename = [mfilename '.mat']; load(filename);
