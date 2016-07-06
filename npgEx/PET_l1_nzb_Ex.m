@@ -229,7 +229,7 @@ switch lower(op)
         set(gca,'FontName','Times','FontSize',16)
         legend('Armijo rule','PG','PNPG');
         xlabel('Number of iterations');
-        ylabel('f(x)-f*(x)');
+        ylabel('\Delta^{(i)}');
         title('centered objective VS # of iterations');
         saveas(gcf,'armijoCompare.eps','psc2');
         !epstopdf armijoCompare.eps
