@@ -1,7 +1,7 @@
 # jemdoc: nodefaultcss, addcss{css/mysite.css}, addcss{css/bibtex.css}
 # jemdoc: notime
 # jemdoc: title{Blind X-ray CT Image Reconstruction from Polychromatic Measurements}
-# jemdoc: menu{MENU}{bhc.html}
+## jemdoc: menu{MENU}{bhc.html}
 
 = Blind X-ray CT Image Reconstruction from Polychromatic Measurements
 

@@ -1,5 +1,5 @@
 
-target := bhc npg
+target := bhc
 
 all: $(addsuffix .html,$(target)) 
 
