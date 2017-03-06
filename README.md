@@ -2,31 +2,7 @@
 
 ### What does this package contain
 
-#### 1. Projected Nesterov's Proximal-Gradient Algorithms (NPG, NPGs and PNPG)
-
-The examples about this methods are under `npgEx` folder with filenames
-ended with `Ex`, where the code can reproduce the figures appear in our
-papers and reports.  The algorithm implementations are under folder `npg`,
-which use the some utility functions under `utils` folder.
-
-##### References
-
-1. R. Gu and A. Dogandžić, (May. 2016). Projected Nesterov's
-   Proximal-Gradient Algorithm for Sparse Signal Reconstruction with a
-   Convex Constraint. *arXiv*: [1502.02613](http://arxiv.org/abs/1502.02613) \[stat.CO\].
-   
-1. R. Gu and A. Dogandžić, “Projected Nesterov’s proximal-gradient signal
-   recovery from compressive Poisson measurements”, in *Proc. Asilomar Conf.
-   Signals, Syst. Comput.*, Pacific Grove, CA, Nov. 2015, pp. 1490–1495.
-   [\[DOI\]](http://dx.doi.org/10.1109/ACSSC.2015.7421393)
-   [\[PDF\]](http://isucsp.github.io/imgRecSrc/pdf/asilomar2015.pdf)
-
-<!---
-R. Gu and A. Dogandžić, “Nesterov’s Proximal-Gradient Algorithms for Reconstructing Nonnegative Signals with Sparse Transform Coefficients,” 2014.
---->
-
-
-####2. Beam Hardening Correction Algorithms
+#### Beam Hardening Correction Algorithms
 
 All examples and data for our blind beam hardening correction method are
 under folder `bhcEx` with filenames ended with `Ex`.  The figures in our
