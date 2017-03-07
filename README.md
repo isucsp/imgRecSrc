@@ -30,6 +30,12 @@ paper can be reproduced by first run `*Ex`, e.g., `yangEx`, followed by
    [\[PDF\]](http://isucsp.github.io/imgRecSrc/pdf/icassp2013.pdf)
    [\[Poster\]](http://isucsp.github.io/imgRecSrc/pdf/icassp2013poster.pdf)
 
+#### Projected Nesterov's Proximal-Gradient (PNPG) algorithm
+
+Although being used as a tool to solve the beam hardening problem, PNPG has
+evolved and now is living in a separate [repository](https://github.com/isucsp/pnpg).
+
+
 ### How to Install
 
 To install this package, first download the repository by running
