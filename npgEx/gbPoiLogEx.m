@@ -9,7 +9,7 @@ function gbPoiLogEx(op)
 %
 % Example with glassbeads under the poisson model with log link function
 
-if(~exist('op','var')) op='plot'; end
+if(~exist('op','var')) op='ind'; end
 
 switch(lower(op))
     case 'full' % code to generate .mat files
