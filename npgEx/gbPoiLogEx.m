@@ -9,7 +9,7 @@ function gbPoiLogEx(op)
 %
 % Example with glassbeads under the poisson model with log link function
 
-if(~exist('op','var')) op='plot'; end
+if(~exist('op','var')) op='ind'; end
 
 switch(lower(op))
     case 'full' % code to generate .mat files
@@ -79,7 +79,7 @@ switch(lower(op))
         prjFull = [60, 80, 100, 120, 180, 360]; j=1;
         OPT.maxItr=4e3; OPT.thresh=1e-6; %OPT.snr=1e6;
         OPT.noiseType='poissonLogLink'; %'gaussian'; %
-        for i=1:6
+        for i=6:6
             OPT.prjFull = prjFull(i); OPT.prjNum = OPT.prjFull;
 
             [y,Phi,Phit,Psi,Psit,OPT,FBP]=loadGlassBeadsSim(OPT);
