@@ -65,6 +65,12 @@ If errors are reported while compiling the `*.c`/`*.cu` files under
 `imgRecSrc/prj/Makefile` to make sure the path for your `CUDA` installation
 is correct.
 
+Don't forget to add the path to CUDA library before starting your Matlab:
+
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
+which can be added to your `.bashrc` file without harm.
+
 #### For `Windows`
 
 require: Visual Studio, cuda toolkit (optional) and GPU (optional)
