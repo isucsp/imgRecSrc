@@ -104,9 +104,9 @@ end
 
 debug=Debug(opt.debugLevel);
 
-if(debug.level>=3) figCost=1000; figure(figCost); end
-if(debug.level>=4) figRes=1001; figure(figRes); end
-if(debug.level>=6) figAlpha=1002; figure(figAlpha); end
+if(debug.level(3)) figCost=1000; figure(figCost); end
+if(debug.level(4)) figRes=1001; figure(figRes); end
+if(debug.level(6)) figAlpha=1002; figure(figAlpha); end
 
 % in case Phi and Psi are matrices instead of function handles.
 if(~isa(Phi,'function_handle'))
