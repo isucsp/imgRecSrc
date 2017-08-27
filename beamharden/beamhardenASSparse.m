@@ -12,6 +12,10 @@ function out = beamhardenASSparse(Phi,Phit,Psi,Psit,y,xInit,opt)
 %               the code for detail)
 %
 %   Reference:
+%       R. Gu and A. Dogandžić, “Blind X-ray CT Image Reconstruction from
+%       Polychromatic Poisson Measurements,” IEEE Trans. Comput. Imag.,
+%       vol. 2, no. 2, pp. 150–165, 2016. 
+%
 %   Author: Renliang Gu (renliang@iastate.edu)
 %   $Revision: 0.3 $ $Date: Thu 14 Nov 2013 10:57:07 AM CST
 %

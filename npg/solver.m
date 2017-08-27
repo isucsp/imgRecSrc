@@ -43,6 +43,10 @@ function out = solver(Phi,Phit,Psi,Psit,y,xInit,opt)
 %               the code for detail)
 %
 %   Reference:
+%       R. Gu and A. Dogandžić, “Projected Nesterov’s proximal-gradient
+%       algorithm for sparse signal recovery,” IEEE Trans. Signal Process.,
+%       vol. 65, no. 13, pp. 3510–3525, 2017.
+%
 %   Author: Renliang Gu (renliang@iastate.edu)
 %
 
