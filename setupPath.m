@@ -88,7 +88,8 @@ if(~exist(['lbfgsb_wrapper.' mexext],'file'))
 end
 cd(pathstr)
 
-slCharacterEncoding('UTF-8');
+% The following is very slow, but can show all unicode print in the code
+% slCharacterEncoding('UTF-8');
 end
 
 
