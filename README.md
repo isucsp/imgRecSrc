@@ -18,6 +18,7 @@ paper can be reproduced by first run `*Ex`, e.g., `yangEx`, followed by
    [\[DOI\]](http://dx.doi.org/10.1109/TCI.2016.2523431)
    [\[PDF\]](http://isucsp.github.io/imgRecSrc/pdf/beamhardenDouble.pdf)
    [\[Poster\]](http://www.sigport.org/668)
+   [\[Presentation Video\]](https://youtu.be/YYZUD82kDuc)
 
 1. R. Gu and A. Dogandžić. (Sep. 2015). Polychromatic X-ray CT Image
    Reconstruction and Mass-Attenuation Spectrum Estimation. *arXiv*:
