@@ -68,14 +68,14 @@ wave intensity lost in traversing an infinitesimal thickness $\dif\ell$ at
 Cartesian coordinates $(x,y)$ is proportional to $\dif\ell$, so that
 \(
     \begin{equation}
-        \frac{\dif \cI}{\cI} = - \mu(\varepsilon) \alpha(x,y) \dif\ell.
+        \frac{\dif \cI}{\cI} = - \kappa(\varepsilon) \alpha(x,y) \dif\ell.
         \label{eq:beerLaw1}
     \end{equation}
 \)
 where
-- $\mu(\varepsilon)$ is the /mass attenuation coefficient/ of the 
-    material (in cm$^2/$g), which depends only on the photon energy 
-    $\varepsilon$,
+- $\kappa(\varepsilon)$ is the /mass attenuation coefficient/ of the 
+  material (in cm$^2/$g), which depends only on the photon energy 
+  $\varepsilon$,
 - $\alpha(x,y)$ is the density map of the inspected object (in $\text{g}/\text{cm}^3$).
 
 Therefore, a monochromatic X-ray signal at photon energy $\varepsilon$ 
@@ -84,7 +84,7 @@ material:
 \(
     \begin{equation}
         \cI^{\text{out}} = \cI^{\text{in}}  \exp\Bigl[ - 
-        \mu(\varepsilon) \int_\ell \alpha(x,y) \dif\ell\Bigr].
+        \kappa(\varepsilon) \int_\ell \alpha(x,y) \dif\ell\Bigr].
         \label{eq:monotoneModel}
     \end{equation}
 \)
@@ -107,8 +107,8 @@ detector upon traversing a straight line $\ell=\ell(x,y)$ is
 \(
     \begin{equation}
         \cI^{\text{out}}=\int \iota(\varepsilon) \,
-        \exp\Big[- \mu(\varepsilon) \, \int_\ell \alpha(x,y) \, \dif\ell\Big] \, 
-        \dif\varepsilon.
+        \exp\Big[- \kappa(\varepsilon) \, \int_\ell \alpha(x,y) \, 
+        \dif\ell\Big] \, \dif\varepsilon.
         \label{eq:polyModel0}
     \end{equation}
 \)
