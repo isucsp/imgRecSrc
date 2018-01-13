@@ -1,4 +1,4 @@
-classdef NPG < Methods
+classdef NPGadmm < Methods
     properties
         stepShrnk = 0.5;
         stepIncre = 0.5;
@@ -23,12 +23,12 @@ classdef NPG < Methods
         preTt
         maxInnerItr=100;
         maxPossibleInnerItr=1e3;
-        pInit
         proxmapping
         prevopt
+        pInit
     end
     methods
-        function obj = NPG(n,alpha,maxAlphaSteps,stepShrnk,pm,prevopt)
+        function obj = NPGadmm(n,alpha,maxAlphaSteps,stepShrnk,pm,prevopt)
             obj = obj@Methods(n,alpha);
             obj.maxItr = maxAlphaSteps;
             obj.stepShrnk = stepShrnk;
@@ -105,10 +105,9 @@ classdef NPG < Methods
                         end
                         [oldCost1,obj.grad] = obj.func(xbar);
                     end
-                    [newimg,obj.innerSearch,pInit_]=obj.proxmapping(showImgMask(xbar-obj.grad/obj.t,obj.mask),...
+                    [newX,obj.innerSearch]=obj.proxmapping(xbar-obj.grad/obj.t,...
                         obj.u/obj.t,obj.innerTol*obj.difAlpha,...
-                        obj.maxInnerItr,obj.pInit);
-                    newX=newimg(obj.mask~=0);
+                        obj.maxInnerItr,obj.alpha);
 
                     newCost=obj.func(newX);
                     if(Utils.majorizationHolds(newX-xbar,newCost,oldCost1,[],obj.grad,obj.t))
@@ -150,10 +149,9 @@ classdef NPG < Methods
 
                         [oldCost1,obj.grad] = obj.func(obj.alpha);
 
-                        [newimg,obj.innerSearch,pInit_]=obj.proxmapping(showImgMask(obj.alpha-obj.grad/obj.t,obj.mask),...
-                            obj.u/obj.t,obj.innerTol*obj.difAlpha,...
-                            obj.maxInnerItr,obj.pInit);
-                        newX1=newimg(obj.mask~=0);
+                        [newX1,obj.innerSearch]=obj.proxmapping(xbar-obj.grad/obj.t,...
+                        obj.u/obj.t,obj.innerTol*obj.difAlpha,...
+                        obj.maxInnerItr,obj.alpha);
                         
                         newCost=obj.func(newX1);
                         
@@ -186,7 +184,7 @@ classdef NPG < Methods
                         newObj=newObj2;
                         newX=newX1;
                         global strlen
-                        fprintf('\t Smaller Objective \n');
+                        fprintf('Smaller Objective \n');
                         strlen=0;
                     else
                         obj.t=proximalT;
@@ -215,7 +213,6 @@ classdef NPG < Methods
                 end
 
                 if (newObj < (max(obj.prevopt)))
-                    obj.pInit=pInit_;
                     obj.Theta=(obj.theta-1)/newTheta;
                     obj.stepSize = 1/obj.t;
                     obj.theta = newTheta;
