@@ -105,7 +105,27 @@ classdef TV < handle
             [newX,innerSearch]=denoise_bound_mod(mask.b(x),u,lb,ub,pars);
             newX=mask.a(newX);
         end
+        function x = Psi(p,q)
+            [I,J]=size(p); I=I+1;
+            x=diff([zeros(1,J); p; zeros(1,J)],1,1) + diff([zeros(I,1), q, zeros(I,1)],1,2);
+        end
 
+        function [p,q] = Psit(x)
+            p=-diff(x,1,1);
+            q=-diff(x,1,2);
+        end
+        function [p,q]=isoPrj(p,q)
+            [I,J]=size(p);
+            I=I+1;
+            %mag=sqrt(max(1,[p.^2;zeros(1,J)]+[q.^2, zeros(I,1)]));
+            mag=sqrt(max(1,p(:,1:J-1).^2+q(1:I-1,:).^2));
+            p(:,1:J-1)=p(:,1:J-1)./mag; p(:,J)=min(max(p(:,J),-1),1);
+            q(1:I-1,:)=q(1:I-1,:)./mag; q(I,:)=min(max(q(I,:),-1),1);
+        end
+        function [p,q]=l1Prj(p,q)
+            p=min(max(p,-1),1);
+            q=min(max(q,-1),1);
+        end
         function o = upperBoundU_admm3(g,xstar)
             [I,J]=size(g);
             Psi=@(w) reshape(A(reshape(w(1:(I-1)*J),[],J))...
