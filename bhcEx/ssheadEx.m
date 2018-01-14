@@ -61,7 +61,7 @@ save ssheadlowerIe.mat Ie
 
 n2=2^floor(log2(m));
 y=sshead;
-load('lowerIe.mat');
+load('ssheadlowerIe.mat');
 OPT.Ie=Ie;
 
 [y,Phi,Phit,Psi,Psit,OPT,FBP]=loaddata(OPT,y,12894);

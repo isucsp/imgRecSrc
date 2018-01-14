@@ -1,7 +1,4 @@
-function [y,Phi,Phit,Psi,Psit,opt,FBP]=loadCasting(opt,y,dis)
-%     y=load('inctruncnew.mat');
-%     y=y.newdata;
-%     y=y-min(y(:));
+function [y,Phi,Phit,Psi,Psit,opt,FBP]=loaddata(opt,y,dis)
 
     [N,M]=size(y);
 
@@ -49,5 +46,5 @@ function [y,Phi,Phit,Psi,Psit,opt,FBP]=loadCasting(opt,y,dis)
     [Psi,Psit]=Utils.getPsiPsit(daub,dwt_L,mask,maskk);
     opt.mask=mask; opt.maskk=maskk;
 
-    % fprintf('Configuration Finished!\n');
+    fprintf('Configuration Finished!\n');
 end

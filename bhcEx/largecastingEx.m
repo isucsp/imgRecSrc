@@ -61,7 +61,7 @@ save castinglowerIe.mat Ie
 
 n2=2^floor(log2(m));
 y=data;
-load('lowerIe.mat');
+load('castinglowerIe.mat');
 OPT.Ie=Ie;
 
 [y,Phi,Phit,Psi,Psit,OPT,FBP]=loaddata(OPT,y,13985);
