@@ -1,4 +1,4 @@
-classdef NPGadmm < Methods
+classdef PGadmm < Methods
     properties
         stepShrnk = 0.5;
         stepIncre = 0.5;
@@ -24,18 +24,18 @@ classdef NPGadmm < Methods
         maxInnerItr=100;
         maxPossibleInnerItr=1e3;
         proxmapping
-        prevopt
+        previousMax  %% Maximum objective value of previous M iterations
         pInit
     end
     methods
-        function obj = NPGadmm(n,alpha,maxAlphaSteps,stepShrnk,pm,prevopt)
+        function obj = PGadmm(n,alpha,maxAlphaSteps,stepShrnk,pm,previousMax)
             obj = obj@Methods(n,alpha);
             obj.maxItr = maxAlphaSteps;
             obj.stepShrnk = stepShrnk;
             obj.nonInc=0;
             obj.proxmapping=pm;
             obj.setAlpha(alpha);
-            obj.prevopt=prevopt;
+            obj.previousMax=previousMax;
         end
         function setAlpha(obj,alpha)
             obj.alpha=alpha;
@@ -61,13 +61,8 @@ classdef NPGadmm < Methods
                         incStep=true;
                     end
                 else
-                    % newTheta=(1+sqrt(1+4*B*theta^2))/2;
-                    if(obj.p==1)
-                        newTheta=1;
-                    else
-                        newTheta=1/gamma+sqrt(b+obj.theta^2);
-                    end
-                    xbar=obj.alpha+(obj.theta -1)/newTheta*(obj.alpha-obj.preAlpha);
+                    
+                    xbar=obj.alpha;
                     if(obj.forcePositive)
                         xbar=max(xbar,0);
                     end
@@ -93,13 +88,8 @@ classdef NPGadmm < Methods
                     end
                     
                     if(obj.adaptiveStep)
-                        if obj.p==1
-                            newTheta=1;
-                        else
-                            B=obj.t/obj.preTt;
-                            newTheta=1/gamma+sqrt(b+B*(obj.theta)^2);
-                        end
-                        xbar=obj.alpha+(obj.theta-1)/newTheta*(obj.alpha-obj.preAlpha);
+                        
+                        xbar=obj.alpha;
                         if(obj.forcePositive)
                             xbar=max(xbar,0);
                         end
@@ -138,7 +128,7 @@ classdef NPGadmm < Methods
                 newObj1=newObj;
                 
                 proximalT=obj.t;
-                if newObj > max(obj.prevopt)
+                if newObj > max(obj.previousMax)
                     global strlen
                     fprintf('\t Momentum Failed \t');
                     strlen=0;
@@ -191,7 +181,7 @@ classdef NPGadmm < Methods
                     end
                 end
 
-                if (newObj > (max(obj.prevopt)-0.5*(1e-5)*obj.t*pNorm(newX-obj.alpha,2))) && outflag<obj.p-1
+                if (newObj > (max(obj.previousMax)-0.5*(1e-5)*obj.t*pNorm(newX-obj.alpha,2))) && outflag<obj.p-1
                     obj.t=startingT;
                     if obj.innerTol>=1e-6
                         obj.innerTol=obj.innerTol/10;
@@ -212,10 +202,9 @@ classdef NPGadmm < Methods
                     end              
                 end
 
-                if (newObj < (max(obj.prevopt)))
+                if (newObj < (max(obj.previousMax)))
                     obj.Theta=(obj.theta-1)/newTheta;
                     obj.stepSize = 1/obj.t;
-                    obj.theta = newTheta;
                     obj.preAlpha = obj.alpha;
                     obj.cost = newObj;
                     obj.difAlpha = relativeDif(obj.alpha,newX);

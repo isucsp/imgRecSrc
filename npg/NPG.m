@@ -2,7 +2,7 @@ classdef NPG < Methods
     properties
         stepShrnk = 0.5;
         stepIncre = 0.5;
-        preAlpha=0;
+        preAlpha=0;     
         preG=[];
         preY=[];
         thresh=1e-6;
@@ -25,17 +25,17 @@ classdef NPG < Methods
         maxPossibleInnerItr=1e3;
         pInit
         proxmapping
-        prevopt
+        previousMax   %% Maximum objective value of previous M iterations
     end
     methods
-        function obj = NPG(n,alpha,maxAlphaSteps,stepShrnk,pm,prevopt)
+        function obj = NPG(n,alpha,maxAlphaSteps,stepShrnk,pm,previousMax)
             obj = obj@Methods(n,alpha);
             obj.maxItr = maxAlphaSteps;
             obj.stepShrnk = stepShrnk;
             obj.nonInc=0;
             obj.proxmapping=pm;
             obj.setAlpha(alpha);
-            obj.prevopt=prevopt;
+            obj.previousMax=previousMax;
         end
         function setAlpha(obj,alpha)
             obj.alpha=alpha;
@@ -139,7 +139,7 @@ classdef NPG < Methods
                 newObj1=newObj;
                 
                 proximalT=obj.t;
-                if newObj > max(obj.prevopt)
+                if newObj > max(obj.previousMax)
                     global strlen
                     fprintf('\t Momentum Failed \t');
                     strlen=0;
@@ -193,7 +193,7 @@ classdef NPG < Methods
                     end
                 end
 
-                if (newObj > (max(obj.prevopt)-0.5*(1e-5)*obj.t*pNorm(newX-obj.alpha,2))) && outflag<obj.p-1
+                if (newObj > (max(obj.previousMax)-0.5*(1e-5)*obj.t*pNorm(newX-obj.alpha,2))) && outflag<obj.p-1
                     obj.t=startingT;
                     if obj.innerTol>=1e-6
                         obj.innerTol=obj.innerTol/10;
@@ -214,7 +214,7 @@ classdef NPG < Methods
                     end              
                 end
 
-                if (newObj < (max(obj.prevopt)))
+                if (newObj < (max(obj.previousMax)))
                     obj.pInit=pInit_;
                     obj.Theta=(obj.theta-1)/newTheta;
                     obj.stepSize = 1/obj.t;

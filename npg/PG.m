@@ -25,17 +25,17 @@ classdef PG < Methods
         maxPossibleInnerItr=1e3;
         pInit
         proxmapping
-        prevopt
+        previousMax  %% Maximum objective value of previous M iterations
     end
     methods
-        function obj = PG(n,alpha,maxAlphaSteps,stepShrnk,pm,prevopt)
+        function obj = PG(n,alpha,maxAlphaSteps,stepShrnk,pm,previousMax)
             obj = obj@Methods(n,alpha);
             obj.maxItr = maxAlphaSteps;
             obj.stepShrnk = stepShrnk;
             obj.nonInc=0;
             obj.proxmapping=pm;
             obj.setAlpha(alpha);
-            obj.prevopt=prevopt;
+            obj.previousMax=previousMax;
         end
         function setAlpha(obj,alpha)
             obj.alpha=alpha;
@@ -127,7 +127,7 @@ classdef PG < Methods
                 newObj1=newObj;
                 
                 proximalT=obj.t;
-                if newObj > max(obj.prevopt)
+                if newObj > max(obj.previousMax)
                     global strlen
                     fprintf('\t Momentum Failed \t');
                     strlen=0;
@@ -181,7 +181,7 @@ classdef PG < Methods
                     end
                 end
 
-                if (newObj > (max(obj.prevopt)-0.5*(1e-5)*obj.t*pNorm(newX-obj.alpha,2))) && outflag<obj.p-1
+                if (newObj > (max(obj.previousMax)-0.5*(1e-5)*obj.t*pNorm(newX-obj.alpha,2))) && outflag<obj.p-1
                     obj.t=startingT;
                     if obj.innerTol>=1e-6
                         obj.innerTol=obj.innerTol/10;
@@ -202,7 +202,7 @@ classdef PG < Methods
                     end              
                 end
 
-                if (newObj < (max(obj.prevopt)))
+                if (newObj < (max(obj.previousMax)))
                     obj.pInit=pInit_;
                     obj.stepSize = 1/obj.t;
                     obj.preAlpha = obj.alpha;
