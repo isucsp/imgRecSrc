@@ -97,7 +97,7 @@ end
 y=y(:);
 Imea=exp(-y); alpha=xInit(:);
 
-prevopt=1e10;
+previousMax=1e10;
 if(isfield(opt,'trueAlpha'))
     switch opt.errorType
         case 0
@@ -261,17 +261,17 @@ switch lower(opt.alphaStep)
             case 'npg'
                 alpha=max(alpha,0);
                 if strcmp('pnpg',opt.innermethod)==1 || strcmp('beck',opt.innermethod)==1
-                    alphaStep=NPG(1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj,prevopt);
+                    alphaStep=NPG(1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj,previousMax);
                 elseif strcmp('admm',opt.innermethod)==1
-                    alphaStep=NPGadmm(1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj,prevopt);
+                    alphaStep=NPGadmm(1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj,previousMax);
                 end
                 alphaStep.fArray{3} = penalty;
             case 'pg'
                 alpha=max(alpha,0);
                 if strcmp('pnpg',opt.innermethod)==1 || strcmp('beck',opt.innermethod)==1
-                    alphaStep=PG(1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj,prevopt);
+                    alphaStep=PG(1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj,previousMax);
                 elseif strcmp('admm',opt.innermethod)==1
-                    alphaStep=PGadmm(1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj,prevopt);
+                    alphaStep=PGadmm(1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj,previousMax);
                 end
                 alphaStep.fArray{3} = penalty;
         end
@@ -375,7 +375,7 @@ end
 
 global strlen
 
-tic; p=0; strlen=0; convThresh=0; qq=5;
+tic; p=0; strlen=0; convThresh=0; MM=5;
 alphaStep.pInit=[];
 alphaStep.mask=opt.mask;
 
@@ -437,10 +437,10 @@ while( ~(opt.skipAlpha && opt.skipIe) )
         out.difCost(p)=abs(out.cost(p)-preCost)/out.cost(p);
         difL = abs(out.cost(p)-preCost)/max(1,out.fVal(p,1));
         alpha = alphaStep.alpha;
-        if p<qq
-            alphaStep.prevopt=out.cost(1:p);
+        if p<MM
+            alphaStep.previousMax=out.cost(1:p);
         else
-            alphaStep.prevopt=out.cost(p-qq+1:p);
+            alphaStep.previousMax=out.cost(p-MM+1:p);
         end
 
         str=sprintf([str ' %12g'],out.cost(p));
