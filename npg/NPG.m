@@ -1,38 +1,41 @@
 classdef NPG < Methods
     properties
         stepShrnk = 0.5;
-        preAlpha=0;
+        stepIncre = 0.5;
+        preAlpha=0;     
         preG=[];
         preY=[];
-        thresh=1e-4;
+        thresh=1e-6;
         maxItr=1e3;
         theta = 0;
-        admmAbsTol=1e-9;
-        admmTol=1e-2;
+        innerAbsTol=1e-9;
+        innerTol=1e-2;
         cumu=0;
         cumuTol=4;
         incCumuTol=true;
         nonInc=0;
         innerSearch=0;
-
-        forcePositive=true;
-
-        restart=0;   % make this value negative to disable restart
+        outflag1=0;
+        forcePositive=false;
+        Theta
+        mask
         adaptiveStep=true;
-
+        preTt
         maxInnerItr=100;
         maxPossibleInnerItr=1e3;
-
+        pInit
         proxmapping
+        previousMax   %% Maximum objective value of previous M iterations
     end
     methods
-        function obj = NPG(n,alpha,maxAlphaSteps,stepShrnk,pm)
+        function obj = NPG(n,alpha,maxAlphaSteps,stepShrnk,pm,previousMax)
             obj = obj@Methods(n,alpha);
             obj.maxItr = maxAlphaSteps;
             obj.stepShrnk = stepShrnk;
             obj.nonInc=0;
             obj.proxmapping=pm;
             obj.setAlpha(alpha);
+            obj.previousMax=previousMax;
         end
         function setAlpha(obj,alpha)
             obj.alpha=alpha;
@@ -41,42 +44,82 @@ classdef NPG < Methods
             obj.preAlpha=alpha;
         end
         % solves L(α) + I(α>=0) + u*||Ψ'*α||_1
-        % method No.4 with ADMM inside FISTA for NNL1
         function out = main(obj)
             pp=0; obj.debug='';
-
+            gamma=2;
+            b=0.25;
+            outflag=0;
             while(pp<obj.maxItr)
-                obj.p = obj.p+1; pp=pp+1;
-                newTheta=(1+sqrt(1+4*obj.theta^2))/2;
-                xbar=obj.alpha+(obj.theta -1)/newTheta*(obj.alpha-obj.preAlpha);
-                if(obj.forcePositive)
-                    xbar=max(xbar,0);
-                end
-                [oldCost,obj.grad] = obj.func(xbar);
 
-                obj.ppp=0; goodStep=true; incStep=false; goodMM=true;
-                if(obj.adaptiveStep && obj.cumu>=obj.cumuTol)
-                    % adaptively increase the step size
-                    obj.t=obj.t*obj.stepShrnk;
-                    obj.cumu=0;
-                    incStep=true;
+                obj.p = obj.p+1; pp=pp+1;          
+                startingT=obj.t;
+                if(obj.adaptiveStep)
+                    if(obj.cumu>=obj.cumuTol)
+                        % adaptively increase the step size
+                        obj.t=obj.t*obj.stepIncre;
+                        obj.cumu=0;
+                        incStep=true;
+                    end
+                else
+                    % newTheta=(1+sqrt(1+4*B*theta^2))/2;
+                    if(obj.p==1)
+                        newTheta=1;
+                    else
+                        newTheta=1/gamma+sqrt(b+obj.theta^2);
+                    end
+                    xbar=obj.alpha+(obj.theta -1)/newTheta*(obj.alpha-obj.preAlpha);
+                    if(obj.forcePositive)
+                        xbar=max(xbar,0);
+                    end
+                    [oldCost1,obj.grad] = obj.func(xbar);
                 end
+
+                
+                obj.ppp=0; goodStep=true; incStep=false; goodMM=true;
+
                 % start of line Search
+                momentumT=obj.t;
+
                 while(true)
                     obj.ppp = obj.ppp+1;
-                    [newX,obj.innerSearch]=obj.proxmapping(xbar-obj.grad/obj.t,...
-                        obj.u/obj.t,obj.admmTol*obj.difAlpha,...
-                        obj.maxInnerItr,obj.alpha);
-                    newCost=obj.func(newX);
-                    if(Utils.majorizationHolds(newX-xbar,newCost,oldCost,[],obj.grad,obj.t))
-                        if(obj.p<=obj.preSteps && obj.ppp<18 && goodStep && obj.t>0)
-                            obj.t=obj.t*obj.stepShrnk; continue;
+                    
+                    if (obj.ppp==21)
+                        flag=1;
+                        obj.t=reset_t(obj);
+                        obj.ppp=1;
+                        global strlen
+                        fprintf('  False MM \n');
+                        strlen=0;
+                    end
+                    
+                    if(obj.adaptiveStep)
+                        if obj.p==1
+                            newTheta=1;
                         else
-                            break;
+                            B=obj.t/obj.preTt;
+                            newTheta=1/gamma+sqrt(b+B*(obj.theta)^2);
                         end
+                        xbar=obj.alpha+(obj.theta-1)/newTheta*(obj.alpha-obj.preAlpha);
+                        if(obj.forcePositive)
+                            xbar=max(xbar,0);
+                        end
+                        [oldCost1,obj.grad] = obj.func(xbar);
+                    end
+                    [newimg,obj.innerSearch,pInit_]=obj.proxmapping(showImgMask(xbar-obj.grad/obj.t,obj.mask),...
+                        obj.u/obj.t,obj.innerTol*obj.difAlpha,...
+                        obj.maxInnerItr,obj.pInit);
+                    newX=newimg(obj.mask~=0);
+
+                    newCost=obj.func(newX);
+                    if(Utils.majorizationHolds(newX-xbar,newCost,oldCost1,[],obj.grad,obj.t))
+                        if(obj.p<=obj.preSteps && goodStep && obj.adaptiveStep)
+                            obj.cumu=obj.cumuTol;
+                        end
+                        break;
                     else
                         if(obj.ppp<=20 && obj.t>0)
-                            obj.t=obj.t/obj.stepShrnk; goodStep=false; 
+                            obj.t=obj.t/obj.stepShrnk; 
+                            goodStep=false; 
                             if(incStep)
                                 if(obj.incCumuTol)
                                     obj.cumuTol=obj.cumuTol+4;
@@ -84,72 +127,126 @@ classdef NPG < Methods
                                 incStep=false;
                             end
                         else  % don't know what to do, mark on debug and break
-                            if(obj.t<0)
-                                global strlen
-                                fprintf('\n NPG is having a negative step size, do nothing and return!!');
-                                strlen=0;
-                                return;
-                            end
                             goodMM=false;
                             obj.debug=[obj.debug '_FalseMM'];
                             break;
                         end
                     end
                 end
-                obj.stepSize = 1/obj.t;
+                    
                 obj.fVal(3) = obj.fArray{3}(newX);
                 newObj = newCost+obj.u*obj.fVal(3);
-                objBar = oldCost+obj.u*obj.fArray{3}(xbar);
+                newObj1=newObj;
+                
+                proximalT=obj.t;
+                if newObj > max(obj.previousMax)
+                    global strlen
+                    fprintf('\t Momentum Failed \t');
+                    strlen=0;
+                    obj.t=momentumT;
+                    obj.ppp=0; goodStep=true; incStep=false; goodMM=true;
+                    while(true)
+                        obj.ppp = obj.ppp+1;
 
-                if((newObj-obj.cost)>0)
-                    if(goodMM && pNorm(xbar-obj.alpha,1)~=0 && obj.restart>=0) % if has monmentum term, restart
-                        obj.theta=1;
-                        obj.debug=[obj.debug '_Restart'];
+                        [oldCost1,obj.grad] = obj.func(obj.alpha);
+
+                        [newimg,obj.innerSearch,pInit_]=obj.proxmapping(showImgMask(obj.alpha-obj.grad/obj.t,obj.mask),...
+                            obj.u/obj.t,obj.innerTol*obj.difAlpha,...
+                            obj.maxInnerItr,obj.pInit);
+                        newX1=newimg(obj.mask~=0);
+                        
+                        newCost=obj.func(newX1);
+                        
+                        if(Utils.majorizationHolds(newX1-obj.alpha,newCost,oldCost1,[],obj.grad,obj.t))
+                            if(obj.p<=obj.preSteps && goodStep && obj.adaptiveStep)
+                                obj.cumu=obj.cumuTol;
+                            end
+                            break;
+                        else
+                            if(obj.ppp<=20 && obj.t>0)
+                                obj.t=obj.t/obj.stepShrnk;
+                                goodStep=false;
+                                if(incStep)
+                                    if(obj.incCumuTol)
+                                        obj.cumuTol=obj.cumuTol+4;
+                                    end
+                                    incStep=false;
+                                end
+                            else  % don't know what to do, mark on debug and break
+                                goodMM=false;
+                                obj.debug=[obj.debug '_FalseMM'];
+                                break;
+                            end
+                        end
+                    end
+                    obj.fVal(3) = obj.fArray{3}(newX1);
+                    newObj2 = newCost+obj.u*obj.fVal(3);
+                    
+                    if newObj2<newObj1
+                        newObj=newObj2;
+                        newX=newX1;
                         global strlen
-                        fprintf('\t restart');
+                        fprintf('\t Smaller Objective \n');
                         strlen=0;
-                        pp=pp-1; continue;
-                    elseif((~goodMM) || (objBar<newObj))
-                        if(~goodMM)
-                            obj.debug=[obj.debug '_Reset'];
-                            obj.reset();
-                        end
-                        if(obj.innerSearch<obj.maxInnerItr && obj.admmTol>1e-6)
-                            obj.admmTol=obj.admmTol/10;
-                            global strlen
-                            fprintf('\n decrease admmTol to %g',obj.admmTol);
-                            strlen=0;
-                            pp=pp-1; continue;
-                        elseif(obj.innerSearch>=obj.maxInnerItr && obj.maxInnerItr<obj.maxPossibleInnerItr)
-                            obj.maxInnerItr=obj.maxInnerItr*10;
-                            global strlen
-                            fprintf('\n increase maxInnerItr to %g',obj.maxInnerItr);
-                            strlen=0;
-                            pp=pp-1; continue;
-                        end
-                        % give up and force it to converge
-                        obj.debug=[obj.debug '_ForceConverge'];
-                        newObj=obj.cost;  newX=obj.alpha;
+                    else
+                        obj.t=proximalT;
                     end
                 end
-                obj.theta = newTheta; obj.preAlpha = obj.alpha;
-                obj.cost = newObj;
-                obj.difAlpha = relativeDif(obj.alpha,newX);
-                obj.alpha = newX;
 
-                if(obj.ppp==1 && obj.adaptiveStep)
-                    obj.cumu=obj.cumu+1;
-                else
-                    obj.cumu=0;
+                if (newObj > (max(obj.previousMax)-0.5*(1e-5)*obj.t*pNorm(newX-obj.alpha,2))) && outflag<obj.p-1
+                    obj.t=startingT;
+                    if obj.innerTol>=1e-6
+                        obj.innerTol=obj.innerTol/10;
+                        outflag=obj.p;
+                        global strlen
+                        fprintf('\t decrease innerTol to %g \n',obj.innerTol);
+                        strlen=0;
+                        pp=pp-1;
+                        continue;
+                    elseif obj.innerTol==1e-7 && obj.maxInnerItr < obj.maxPossibleInnerItr
+                        obj.maxInnerItr=obj.maxInnerItr*2;
+                        outflag=obj.p;
+                        global strlen
+                        fprintf('\t increase maxInnerItr to %g \n',obj.maxInnerItr);
+                        strlen=0;
+                        pp=pp-1;
+                        continue;
+                    end              
                 end
-                if(obj.difAlpha<=obj.thresh) break; end
+
+                if (newObj < (max(obj.previousMax)))
+                    obj.pInit=pInit_;
+                    obj.Theta=(obj.theta-1)/newTheta;
+                    obj.stepSize = 1/obj.t;
+                    obj.theta = newTheta;
+                    obj.preAlpha = obj.alpha;
+                    obj.cost = newObj;
+                    obj.difAlpha = relativeDif(obj.alpha,newX);
+                    obj.alpha = newX;
+                else 
+                    obj.outflag1=obj.outflag1+1;
+                end
+
+                if(obj.adaptiveStep)
+                    obj.preTt=obj.t;
+                    if obj.ppp==1
+                        obj.cumu=obj.cumu+1;
+                    else
+                        obj.cumu=0;
+                    end
+                end
+                if obj.outflag1==2
+                    break;
+                end
+                if(obj.difAlpha<=obj.thresh) 
+                    break; 
+                end
             end
             out = obj.alpha;
         end
-        function reset(obj)
-            obj.theta=1;
-            recoverT=obj.stepSizeInit('hessian');
-            obj.t=min([obj.t;max(recoverT)]);
+        function gg=reset_t(obj)
+            recoverT=obj.stepSizeInit('BB');
+            gg=min([obj.t;max(recoverT)]);
         end
     end
 end

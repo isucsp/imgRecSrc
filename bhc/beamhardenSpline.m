@@ -33,13 +33,15 @@ end
 % for alpha step
 % 'NPG'; %'SpaRSA'; %'NCG_PR'; %'ADMM_L1'; %
 if(~isfield(opt,'noiseType')) opt.noiseType='Poisson'; end
-if(~isfield(opt,'proximal' )) opt.proximal='wvltADMM'; end
+if(~isfield(opt,'proximal' )) opt.proximal='tviso'; end
+if(~isfield(opt,'innermethod' )) opt.innermethod='pnpg'; end
+if(~isfield(opt,'innerTol' )) opt.innerTol=opt.admmTol; end
 if(~isfield(opt,'alphaStep')) opt.alphaStep='NPG'; end
 if(~isfield(opt,'skipAlpha')) opt.skipAlpha=false; end
 if(~isfield(opt,'maxAlphaSteps')) opt.maxAlphaSteps=1; end
 
 if(~isfield(opt,'continuation')) opt.continuation=false; end
-if(~isfield(opt,'contShrnk')) opt.contShrnk=0.98; end
+if(~isfield(opt,'contShrnk')) opt.contShrnk=0.99; end
 if(~isfield(opt,'contCrtrn')) opt.contCrtrn=1e-4; end
 if(~isfield(opt,'contEta')) opt.contEta=1e-2; end
 if(~isfield(opt,'contGamma')) opt.contGamma=1e4; end
@@ -56,7 +58,7 @@ if(~isfield(opt,'a')) opt.a=1e-6; end
 if(~isfield(opt,'IeStep')) opt.IeStep='LBFGSB'; end
 if(~isfield(opt,'skipIe')) opt.skipIe=false; end
 if(~isfield(opt,'maxIeSteps')) opt.maxIeSteps=20; end
-if(~isfield(opt,'etaDifCost')) opt.etaDifCost=1e-2; end
+if(~isfield(opt,'etaDifCost')) opt.etaDifCost=1e-5; end
 if(~isfield(opt,'spectBasis')) opt.spectBasis='dis'; end
 if(~isfield(opt,'CenterB')) opt.CenterB=false; end
 if(~isfield(opt,'shiftRight')) opt.shiftRight=false; end
@@ -88,9 +90,14 @@ if(~isfield(opt,'muLustig')) opt.muLustig=1e-13; end
 % use GML model to estimate Ie in after getting the estimation of α
 if(~isfield(opt,'estIe')) opt.estIe=false; end
 
+if strcmp('wvltADMM',opt.proximal)==1 || strcmp('wvltLagrangian',opt.proximal)==1
+    opt.innermethod='admm';
+end
+
 y=y(:);
 Imea=exp(-y); alpha=xInit(:);
 
+previousMax=1e10;
 if(isfield(opt,'trueAlpha'))
     switch opt.errorType
         case 0
@@ -172,7 +179,8 @@ else
     polymodel.setPlot(0,0,0);
 end
 
-if(isfield(opt,'Ie')) Ie=opt.Ie(:);
+if(isfield(opt,'Ie')) 
+    Ie=opt.Ie(:);
 else
     if(opt.skipIe)  % it is better to use dis or b-1 spline
         Ie=interp1(log(opt.upkappa), opt.upiota ,log(kappa(:)),'spline');
@@ -198,7 +206,7 @@ switch lower(opt.alphaStep)
     case {lower('NPGs'), lower('NPG'), lower('PG')}
         switch(lower(opt.proximal))
             case lower('nonneg')
-                proximalProj=@(x,u,innerThresh,maxInnerItr) customMax(x,0);
+                proximalProj=@(x,u,innerThresh,maxInnerItr,init) customMax(x,0);
                 penalty = @(x) 0;
                 fprintf('Use apply nonnegativity only\n');
             case lower('wvltADMM')
@@ -213,13 +221,35 @@ switch lower(opt.alphaStep)
                 penalty = @(x) pNorm(Psit(x),1);
                 fprintf('Use l1 norm of wavelet coeff, SPIRAL\n');
             case lower('tvl1')
-                proximalProj=@(x,u,innerThresh,maxInnerItr,init) TV.denoise(x,u,...
-                    innerThresh,maxInnerItr,opt.mask,'l1',init);
+                proj=@(x) max(x,0);
+                if strcmp('pnpg',opt.innermethod)==1
+                    proximal=tvProximal('l1',proj,'pnpg',opt);
+                    proximalProj=@(x,u,innerThresh,maxInnerItr,init) proximal.prox(x,u,...
+                        innerThresh,maxInnerItr,init);
+                elseif strcmp('beck',opt.innermethod)==1
+                    proximal=tvProximal('l1',proj,'beck',opt);
+                    proximalProj=@(x,u,innerThresh,maxInnerItr,init) proximal.prox(x,u,...
+                        innerThresh,maxInnerItr,init);
+                elseif strcmp('admm',opt.innermethod)==1
+                    proximalProj=@(x,u,innerThresh,maxInnerItr,init) TV.denoise(x,u,...
+                        innerThresh,maxInnerItr,opt.mask,'l1',init);
+                end
                 penalty = @(x) tlv(maskFunc(x,opt.mask),'l1');
                 fprintf('Use l1 TV\n');
             case lower('tviso')
-                proximalProj=@(x,u,innerThresh,maxInnerItr,init) TV.denoise(x,u,...
-                    innerThresh,maxInnerItr,opt.mask,'iso',init);
+                proj=@(x) max(x,0);
+                if strcmp('pnpg',opt.innermethod)==1
+                    proximal=tvProximal('iso',proj,'pnpg',opt);
+                    proximalProj=@(x,u,innerThresh,maxInnerItr,init) proximal.prox(x,u,...
+                        innerThresh,maxInnerItr,init);
+                elseif strcmp('beck',opt.innermethod)==1
+                    proximal=tvProximal('iso',proj,'beck',opt);
+                    proximalProj=@(x,u,innerThresh,maxInnerItr,init) proximal.prox(x,u,...
+                        innerThresh,maxInnerItr,init);
+                elseif strcmp('admm',opt.innermethod)==1
+                    proximalProj=@(x,u,innerThresh,maxInnerItr,init) TV.denoise(x,u,...
+                        innerThresh,maxInnerItr,opt.mask,'iso',init);
+                end
                 penalty = @(x) tlv(maskFunc(x,opt.mask),'iso');
                 fprintf('Use ISO TV\n');
         end
@@ -230,11 +260,19 @@ switch lower(opt.alphaStep)
                 alphaStep.fArray{3} = penalty;
             case 'npg'
                 alpha=max(alpha,0);
-                alphaStep=NPG (1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj);
+                if strcmp('pnpg',opt.innermethod)==1 || strcmp('beck',opt.innermethod)==1
+                    alphaStep=NPG(1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj,previousMax);
+                elseif strcmp('admm',opt.innermethod)==1
+                    alphaStep=NPGadmm(1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj,previousMax);
+                end
                 alphaStep.fArray{3} = penalty;
             case 'pg'
                 alpha=max(alpha,0);
-                alphaStep=PG  (1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj);
+                if strcmp('pnpg',opt.innermethod)==1 || strcmp('beck',opt.innermethod)==1
+                    alphaStep=PG(1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj,previousMax);
+                elseif strcmp('admm',opt.innermethod)==1
+                    alphaStep=PGadmm(1,alpha,opt.maxAlphaSteps,opt.stepShrnk,proximalProj,previousMax);
+                end
                 alphaStep.fArray{3} = penalty;
         end
 end
@@ -256,7 +294,7 @@ if(opt.continuation)
     % This makes sure that the regulator settles after 300 iterations
     alphaStep.u = min(alphaStep.u,opt.u*1000);
 
-    keyboard
+%     keyboard
     contIdx=1;
     [~,g]=alphaStep.fArray{1}(alpha);
     inf_psit_grad=pNorm(Psit(g),inf);
@@ -271,7 +309,7 @@ if(opt.continuation)
 else alphaStep.u=opt.u;
     fprintf('opt.u=%g\n',opt.u);
 end
-
+% alphaStep.u=10;
 disp(['Use initial sparsity regulator u: ' num2str(alphaStep.u)]);
 
 if(any(strcmp(properties(alphaStep),'restart')))
@@ -289,9 +327,9 @@ if(any(strcmp(properties(alphaStep),'cumuTol'))...
         && isfield(opt,'cumuTol'))
     alphaStep.cumuTol=opt.cumuTol;
 end
-if(any(strcmp(properties(alphaStep),'admmTol'))...
-        && isfield(opt,'admmTol'))
-    alphaStep.admmTol=opt.admmTol;
+if(any(strcmp(properties(alphaStep),'innerTol'))...
+        && isfield(opt,'innerTol'))
+    alphaStep.innerTol=opt.innerTol;
 end
 if(strcmpi(opt.initStep,'fixed'))
     alphaStep.stepSizeInit(opt.initStep,opt.L);
@@ -336,7 +374,11 @@ if(opt.debugLevel>=1)
 end
 
 global strlen
-tic; p=0; strlen=0; convThresh=0;
+
+tic; p=0; strlen=0; convThresh=0; MM=5;
+alphaStep.pInit=[];
+alphaStep.mask=opt.mask;
+
 while( ~(opt.skipAlpha && opt.skipIe) )
     if(opt.saveAnimate && (p<10 || (p>=10 && p<100 && mod(p,10)==0) || (p>=100 && mod(p,100)==0)))
         img=showImgMask(alpha,opt.mask);
@@ -360,20 +402,6 @@ while( ~(opt.skipAlpha && opt.skipIe) )
         save('iotaAnim.data','iotaAnim','-ascii');
     end
 
-    % if(p==0)
-    %     PhiFbp=Phi(xInit);
-    %     idx=randi(length(y),1000,1);
-    %     linAnimate=[y(idx), PhiFbp(idx)];
-    %     iotaAnim = [];
-    % end
-    % figure(1); plot(PhiFbp(idx),y(idx),'r.'); hold on;
-    % PhiAlpha=Phi(alpha);
-    % s=linspace(min(PhiAlpha),max(PhiAlpha),100);
-    % plot(PhiAlpha(idx),y(idx),'b.');
-    % plot(s(:), -log(polyIout(s,Ie)));
-    % hold off;
-    % drawnow;
-
     p=p+1;
     str=sprintf(' %5d',p);
     
@@ -385,26 +413,35 @@ while( ~(opt.skipAlpha && opt.skipIe) )
         
         out.fVal(p,:) = (alphaStep.fVal(:))';
         out.cost(p) = alphaStep.cost;
-        if(~opt.skipIe) IeStep.cost=alphaStep.fVal(1); end
-
+        if(~opt.skipIe) 
+            IeStep.cost=alphaStep.fVal(1); 
+        end
         out.alphaSearch(p) = alphaStep.ppp;
         out.stepSize(p) = alphaStep.stepSize;
-        if(hasRestart) out.restart(p)=alphaStep.restart; end
-        if(collectInnerSearch) out.innerSearch(p)=alphaStep.innerSearch; end;
+        if(hasRestart) 
+            out.restart(p)=alphaStep.restart; 
+        end
+        if(collectInnerSearch) 
+            out.innerSearch(p)=alphaStep.innerSearch; 
+        end
         if(collectDebug && ~isempty(alphaStep.debug))
             out.debug{size(out.debug,1)+1,1}=p;
             out.debug{size(out.debug,1),2}=alphaStep.debug;
-        end;
+        end
         if(opt.debugLevel>1)
             out.BB(p,1)=alphaStep.stepSizeInit('BB');
             out.BB(p,2)=alphaStep.stepSizeInit('hessian');
-            % alphaStep.stepSizeInit('hessian',alpha);
         end
 
         out.difAlpha(p)=relativeDif(alphaStep.alpha,alpha);
         out.difCost(p)=abs(out.cost(p)-preCost)/out.cost(p);
         difL = abs(out.cost(p)-preCost)/max(1,out.fVal(p,1));
         alpha = alphaStep.alpha;
+        if p<MM
+            alphaStep.previousMax=out.cost(1:p);
+        else
+            alphaStep.previousMax=out.cost(p-MM+1:p);
+        end
 
         str=sprintf([str ' %12g'],out.cost(p));
         if(opt.continuation || strcmpi(opt.uMode,'relative'))
@@ -416,10 +453,9 @@ while( ~(opt.skipAlpha && opt.skipIe) )
             opt.u=opt.a*max(abs(PsitPhitz+PsitPhit1*log(temp(1))))*temp(2)/temp(1);
         end
         if(opt.continuation)
-            %if(p>1 && opt.difCost(p)<opt.contCrtrn)
-                alphaStep.u = max(alphaStep.u*opt.contShrnk,opt.u);
-            %end
-        else alphaStep.u=opt.u;
+            alphaStep.u = max(alphaStep.u*opt.contShrnk,opt.u);
+        else
+            alphaStep.u=opt.u;
         end
 
         if(hasTrueAlpha)
@@ -440,8 +476,11 @@ while( ~(opt.skipAlpha && opt.skipIe) )
     if(~opt.skipIe)
         % update the object fuction w.r.t. Ie
         if(strcmpi(opt.noiseType,'Gaussian') && strcmpi(opt.IeStep,'NPG'))
-            if(max(IeStep.zmf(:))>=1 || p<20)  IeStep.maxItr=opt.maxIeSteps*10;
-            else IeStep.maxItr=opt.maxIeSteps; end
+            if(max(IeStep.zmf(:))>=1 || p<20)  
+                IeStep.maxItr=opt.maxIeSteps*10;
+            else
+                IeStep.maxItr=opt.maxIeSteps; 
+            end
         end
 
         A = polyIout(Phi(alpha),[]);
@@ -451,7 +490,8 @@ while( ~(opt.skipAlpha && opt.skipIe) )
         [~,IeStepCnt]=IeStep.main();
 
         if(opt.shiftRight)
-            if(sum(IeStep.Ie(end))==0) m=m+1;
+            if(sum(IeStep.Ie(end))==0) 
+                m=m+1;
             else
                 m=0;
             end
@@ -493,8 +533,11 @@ while( ~(opt.skipAlpha && opt.skipIe) )
             str=sprintf([str ' %12s'],' ');
         end
     end
-    % end optimizing over Ie
+    alpha=alphaStep.alpha;
     
+    Ie=IeStep.Ie;
+    % end optimizing over Ie   
+
     if(opt.debugLevel>1)
         if(opt.debugLevel>=2)
             set(0,'CurrentFigure',figLin);
@@ -559,10 +602,11 @@ while( ~(opt.skipAlpha && opt.skipIe) )
         else strlen = length(str);
         end
     end
-    out.time(p)=toc;
+    out.time(p)=toc;    
     if( p>1 && out.difAlpha(p)<=opt.thresh && (alphaStep.u==opt.u(end)) )
         convThresh=convThresh+1;
     end
+
     if(p >= opt.maxItr || convThresh>2) && (p>opt.minItr)
         if(opt.debugLevel==0) fprintf('%s',str); end
         break;
@@ -583,9 +627,10 @@ end
 end
 
 
-function [y,z]=customMax(x,c)
+function [y,z,m]=customMax(x,c)
     y=max(x,c);
     z=1;
+    m=1;
 end
 
 
